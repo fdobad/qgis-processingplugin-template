@@ -6,13 +6,13 @@
 
     # ok
     git commit
-    git tag -a 0.0.2 -m 'message'
     git push
-    git push origin 0.0.2
+    git tag -a v0.0.2 -m 'message'
+    git push origin v0.0.2
 
     # undo tag
-    git push --delete origin 0.0.2
-    git tag --delete 0.0.2
+    git push --delete origin v0.0.2
+    git tag --delete v0.0.2
 
 3. archive
 

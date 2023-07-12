@@ -1,10 +1,4 @@
 ProcessingPluginModule.py export-subst
 ProcessingPluginModule_algorithm.py export-subst
 ProcessingPluginModule_provider.py export-subst
-# this next line exports the git describe output into the file
-# ProcessingPluginModule_versi	
-# git config filter.export-subst.clean "sed 's/\$Format:%d\$//g'"
-# git config filter.export-subst.smudge cat
-# git config filter.export-subst.required true
-metadata.txt export-subst:version=git describe --tags --dirty --always
 

@@ -21,13 +21,14 @@ jobs:
          VERSION=${GITHUB_REF_NAME#v}
          echo "version is ${VERSION}"
          sed -i -e "s/version=0.0.1/version=${VERSION}/" metadata.txt
-         git config user.email "8339628-fdobad@users.noreply.gitlab.com"
+         git config user.email $GITHUB_MAIL
+         git config user.name $GITHUB_ACTOR
          git add metadata.txt
          git commit --amend --no-edit
 
     - name: git archive
       run: |
-         git archive --format=zip --prefix=archive/ --output "archive_${{ github.ref_name }}.zip" HEAD
+         git archive --format=zip --prefix=archive/ --add-file=metadata.txt --output "archive_${{ github.ref_name }}.zip" HEAD
          
     - name: Create Release
       uses: ncipollo/release-action@v1.12.0

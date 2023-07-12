@@ -3,7 +3,7 @@ name: Create Archive
 on:
   create:
     tags:
-      - v*
+      - *
 
 permissions:
   contents: write
@@ -20,4 +20,7 @@ jobs:
       run: |
          echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
          echo "Tag name from github.ref_name: ${{  github.ref_name }}"
-         sed -e "s/version=0.0.1/version=${{  github.ref_name }}" metadata.txt
+
+    - name: Sed
+      run: |
+         sed -e "s/version=0.0.1/version=${{  github.ref_name }}/" metadata.txt

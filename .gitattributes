@@ -1,0 +1,3 @@
+ProcessingPluginModule.py export-subst
+ProcessingPluginModule_algorithm.py export-subst
+ProcessingPluginModule_provider.py export-subst

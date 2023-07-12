@@ -6,7 +6,7 @@
 name=Processing Plugin Name
 qgisMinimumVersion=3.0
 description=Description of the p p 
-version=$Format:%d$
+version=0.0.1
 author=fdo
 email=fbadilla@ing.uchile.cl
 

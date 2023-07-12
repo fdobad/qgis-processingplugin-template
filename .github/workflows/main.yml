@@ -21,6 +21,7 @@ jobs:
          VERSION=${GITHUB_REF_NAME#v}
          echo "version is ${VERSION}"
          sed -i -e "s/version=0.0.1/version=${VERSION}/" metadata.txt
+         git config user.email "8339628-fdobad@users.noreply.gitlab.com"
          git add metadata.txt
          git commit --amend --no-edit
 

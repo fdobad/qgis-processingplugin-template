@@ -1,9 +1,9 @@
 name: Create Archive
 
 on:
-  create:
+  push:
     tags:
-      - *
+      - '*'
 
 permissions:
   contents: write
@@ -24,3 +24,8 @@ jobs:
     - name: Sed
       run: |
          sed -e "s/version=0.0.1/version=${{  github.ref_name }}/" metadata.txt
+
+    - name: git archive
+      run: |
+         git archive --format=zip --prefix=archive/ --output archive.zip HEAD
+         ls

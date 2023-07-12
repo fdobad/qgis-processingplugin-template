@@ -28,7 +28,7 @@ jobs:
 
     - name: git archive
       run: |
-         git archive --format=zip --prefix=archive/ --output "archive${VERSION}.zip" HEAD
+         git archive --format=zip --prefix=archive/ --output "archive_v${VERSION}.zip" HEAD
          
     - name: Create Release
       uses: ncipollo/release-action@v1.12.0

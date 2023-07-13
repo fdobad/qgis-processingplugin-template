@@ -19,9 +19,18 @@
     git archive --format=zip --prefix=archived/ --output archive.zip HEAD
 
 # TRASH 
+## github action to ammend a commit ?
+
+    - name: Checkout
+      uses: actions/checkout@master
+      git config user.name github-actions
+      git config user.email github-actions@github.com
+      sed -i -e "s/version=0.0.1/version=${VERSION}/" metadata.txt
+      git add metadata.txt
+      git commit --amend --no-edit
+
+## clean smudge filter ?
 
     git config filter.export-subst.clean "sed 's/\$Format:%d\$//g'"
     git config filter.export-subst.smudge cat
     git config filter.export-subst.required true
-
-

@@ -24,10 +24,10 @@ jobs:
 
     - name: git archive
       run: |
-         git archive --format=zip --prefix=archive/ --add-file=metadata.txt --output "archive_${{ github.ref_name }}.zip" HEAD
+         git archive --format=zip --prefix=processingpluginmodule/ --add-file=metadata.txt --output "processingpluginmodule_${{ github.ref_name }}.zip" HEAD
          
     - name: Create Release
       uses: ncipollo/release-action@v1.12.0
       with:
-        artifacts: "archive_${{ github.ref_name }}.zip"
+        artifacts: "processingpluginmodule_${{ github.ref_name }}.zip"
         token: ${{ secrets.GITHUB_TOKEN }}

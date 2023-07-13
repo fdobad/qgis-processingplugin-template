@@ -1,10 +1,19 @@
-# setting up autoversioning
+# Auto versioning at release
 
-1. define versions to update in `.gitattributes`
+With github actions
 
-2. commit & tag
+1. Setup `.gitattributes` to:
+1.1. Auto update files with commit_id if contains `__version__ = "$Format:%H$"` line
 
-    # ok
+    file_name export-subst
+
+1.2. Ignore file (or glob *) when git archiving
+
+    file_name export-ignore
+
+2. Commit, push & tag
+
+    # do
     git commit
     git push
     git tag -a v0.0.2 -m 'message'
@@ -14,9 +23,11 @@
     git push --delete origin v0.0.2
     git tag --delete v0.0.2
 
-3. archive
+3. Archive adding the modified versioning file
 
-    git archive --format=zip --prefix=archived/ --output archive.zip HEAD
+    VERSION=${GITHUB_REF_NAME#v}
+    sed -i -e "s/version=0.0.1/version=${VERSION}/" metadata.txt
+    git archive --format=zip --prefix=archived/ --add-file=metadata.txt --output archive.zip HEAD
 
 # TRASH 
 ## github action to ammend a commit ?

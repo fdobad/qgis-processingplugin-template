@@ -22,13 +22,6 @@ jobs:
          echo "version is ${VERSION}"
          sed -i -e "s/version=0.0.1/version=${VERSION}/" metadata.txt
 
-    - name: commit
-      run: |
-         git config user.name github-actions
-         git config user.email github-actions@github.com
-         git add metadata.txt
-         git commit --amend --no-edit
-
     - name: git archive
       run: |
          git archive --format=zip --prefix=archive/ --add-file=metadata.txt --output "archive_${{ github.ref_name }}.zip" HEAD

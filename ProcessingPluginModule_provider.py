@@ -33,7 +33,11 @@ __version__ = "$Format:%H$"
 from qgis.core import QgsProcessingProvider
 
 from .ProcessingPluginModule_algorithm import ProcessingPluginClassAlgorithm
+from .ProcessingPluginModule_knapsack import ProcessingPluginClassAlgorithm_knapsack
 
+import logging
+logger = logging.getLogger(__name__)
+logger.info("Hello from provider!")
 
 class ProcessingPluginClassProvider(QgsProcessingProvider):
     def __init__(self):
@@ -54,6 +58,7 @@ class ProcessingPluginClassProvider(QgsProcessingProvider):
         Loads all algorithms belonging to this provider.
         """
         self.addAlgorithm(ProcessingPluginClassAlgorithm())
+        self.addAlgorithm(ProcessingPluginClassAlgorithm_knapsack())
         # add additional algorithms here
         # self.addAlgorithm(MyOtherAlgorithm())
 

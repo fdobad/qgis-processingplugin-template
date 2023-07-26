@@ -30,9 +30,16 @@ __copyright__ = "(C) 2023 by fdo"
 
 __version__ = "$Format:%H$"
 
+from time import sleep
+
 from qgis.core import (QgsFeatureSink, QgsProcessing, QgsProcessingAlgorithm,
+                       QgsProcessingLayerPostProcessorInterface,
+                       QgsProcessingParameterBoolean,
+                       QgsProcessingParameterEnum,
                        QgsProcessingParameterFeatureSink,
-                       QgsProcessingParameterFeatureSource)
+                       QgsProcessingParameterFeatureSource,
+                       QgsProcessingParameterFile,
+                       QgsProcessingParameterNumber)
 from qgis.PyQt.QtCore import QCoreApplication
 
 
@@ -56,23 +63,102 @@ class ProcessingPluginClassAlgorithm(QgsProcessingAlgorithm):
 
     OUTPUT = "OUTPUT"
     INPUT = "INPUT"
+    INPUT_bool = "INPUT_bool"
+    INPUT_file = "INPUT_file"
+    INPUT_folder = "INPUT_folder"
+    INPUT_integer = "INPUT_integer"
+    INPUT_double = "INPUT_double"
+    INPUT_enum = "INPUT_enum"
 
     def initAlgorithm(self, config):
         """
         Here we define the inputs and output of the algorithm, along
         with some other properties.
         """
-
+        qplppi = QPLPPI()
+        # add parameter
+        # self.addParameter(
+        #     )
+        # )
         # We add the input vector features source. It can have any kind of
         # geometry.
         self.addParameter(
             QgsProcessingParameterFeatureSource(
                 self.INPUT,
-                self.tr("Input layer"),
+                self.tr("Input TypeVectorAnyGeometry"),
                 [QgsProcessing.TypeVectorAnyGeometry],
             )
         )
-
+        # bool
+        self.addParameter(
+            QgsProcessingParameterBoolean(
+                name=self.INPUT_bool,
+                description=self.tr("Input Boolean"),
+                defaultValue=False,
+                optional=False,
+            )
+        )
+        # number
+        # QgsProcessingParameterNumber(name: str, description: str = '', type: QgsProcessingParameterNumber.Type = QgsProcessingParameterNumber.Integer, defaultValue: Any = None, optional: bool = False, minValue: float = -DBL_MAX+1, maxValue: float = DBL_MAX)
+        # integer
+        self.addParameter(
+            QgsProcessingParameterNumber(
+                name=self.INPUT_integer,
+                description=self.tr("Input Integer"),
+                type=QgsProcessingParameterNumber.Integer,
+                # defaultValue = 0,
+                optional=False,
+                minValue=-7,
+                maxValue=13,
+            )
+        )
+        # double
+        qppn = QgsProcessingParameterNumber(
+            name=self.INPUT_double,
+            description=self.tr("Input Double"),
+            type=QgsProcessingParameterNumber.Double,
+            defaultValue=0.69,
+            optional=True,
+            minValue=-1.2345,
+            maxValue=420.666,
+        )
+        qppn.setMetadata({"widget_wrapper": {"decimals": 3}})
+        self.addParameter(qppn)
+        # file
+        # name: str, description: str = '', behavior: QgsProcessingParameterFile.Behavior = QgsProcessingParameterFile.File, extension: str = '', defaultValue: Any = None, optional: bool = False, fileFilter: str = ''
+        self.addParameter(
+            QgsProcessingParameterFile(
+                name=self.INPUT_file,
+                description=self.tr("Input File"),
+                behavior=QgsProcessingParameterFile.File,
+                extension="csv",  # only 1
+                # >1 ?? fileFilter="csv(*.csv), text(*.txt)",
+            )
+        )
+        # folder
+        self.addParameter(
+            QgsProcessingParameterFile(
+                name=self.INPUT_folder,
+                description=self.tr("Input Folder"),
+                behavior=QgsProcessingParameterFile.Folder,
+            )
+        )
+        # enum
+        # QgsProcessingParameterEnum(name: str, description: str = '', options: Iterable[str] = [], allowMultiple: bool = False, defaultValue: Any = None, optional: bool = False, usesStaticStrings: bool = False)
+        qppe = QgsProcessingParameterEnum(
+            name=self.INPUT_enum,
+            description=self.tr("Input Enum"),
+            options=["a", "b", "c"],
+            allowMultiple=True,
+            defaultValue="b",
+            optional=False,
+            usesStaticStrings=True,
+        )
+        #  qppe.param.setMetadata( {'widget_wrapper':
+        #    { 'icons': [QIcon('integer.svg'), QIcon('string.svg')] }
+        #  })
+        self.addParameter(qppe)
+        #
         # We add a feature sink in which to store our processed features (this
         # usually takes the form of a newly created vector layer when the
         # algorithm is run in QGIS).
@@ -83,7 +169,28 @@ class ProcessingPluginClassAlgorithm(QgsProcessingAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         """
         Here is where the processing itself takes place.
+        feedback : <class 'qgis._core.QgsProcessingFeedback'>
+        context : <class 'qgis._core.QgsProcessingContext'>
+        parameters : <class 'dict'>
         """
+
+        # feedback.setProgress 0.0 -> 100.0
+        # for i in range(6):
+        #    sleep(0.1)
+        #    feedback.setProgress(i*10)
+        #    feedback.setProgressText(f"setProgressText {i*10}")
+
+        # feedback.pushVersionInfo()
+        # feedback.pushCommandInfo(f"pushCommandInfo")
+        # feedback.pushConsoleInfo("pushConsoleInfo")  # monospace gray
+        # feedback.pushDebugInfo(f"pushDebugInfo")  # gray
+        # feedback.pushInfo("pushInfo")
+        # feedback.pushWarning("pushWarning")  # yellow
+        # feedback.reportError("reportError")  # red
+
+        # feedback.pushCommandInfo(f"feedback \n {type(feedback)} \n {dir(feedback)}")
+        feedback.pushCommandInfo(f"parameters {parameters}")
+        feedback.pushCommandInfo(f"context args: {context.asQgisProcessArguments()}")
 
         # Retrieve the feature source and sink. The 'dest_id' variable is used
         # to uniquely identify the feature sink, and must be included in the
@@ -97,6 +204,9 @@ class ProcessingPluginClassAlgorithm(QgsProcessingAlgorithm):
             source.wkbType(),
             source.sourceCrs(),
         )
+
+        input_boolean = self.parameterAsBool(parameters, self.INPUT_bool, context)
+        feedback.pushCommandInfo(f"input_boolean {input_boolean}")
 
         # Compute the number of steps to display within the progress bar and
         # get features from source
@@ -114,6 +224,14 @@ class ProcessingPluginClassAlgorithm(QgsProcessingAlgorithm):
             # Update the progress bar
             feedback.setProgress(int(current * total))
 
+        # TODO test:
+        #context.addLayerToLoadOnCompletion()
+        # .addLayerToLoadOnCompletion(self, layer: str, details: QgsProcessingContext.LayerDetails)
+        #       QgsProcessingContext.LayerDetails(name: str, project: QgsProject, outputName: str = '', layerTypeHint: QgsProcessingUtils.LayerHint = QgsProcessingUtils.LayerHint.UnknownType)
+        # .setLayersToLoadOnCompletion()
+        # .willLoadLayerOnCompletion()
+        # .layerToLoadOnCompletionDetails()
+
         # Return the results of the algorithm. In this case our only result is
         # the feature sink which contains the processed features, but some
         # algorithms may return multiple feature sinks, calculated numeric
@@ -130,7 +248,7 @@ class ProcessingPluginClassAlgorithm(QgsProcessingAlgorithm):
         lowercase alphanumeric characters only and no spaces or other
         formatting characters.
         """
-        return "FirebreakManagement"
+        return "Template Processing Algorithm"
 
     def displayName(self):
         """
@@ -161,3 +279,41 @@ class ProcessingPluginClassAlgorithm(QgsProcessingAlgorithm):
 
     def createInstance(self):
         return ProcessingPluginClassAlgorithm()
+
+    def shortHelpString(self):
+        """
+        Returns a localised short helper string for the algorithm. This string
+        should provide a basic description about what the algorithm does and the
+        parameters and outputs associated with it..
+        """
+        return self.tr(
+            "This is an example algorithm that takes a vector layer and creates a new identical one."
+        )
+
+    def helpString(self):
+        """
+        Returns a localised help string for the algorithm. This string should
+        provide more detailed help and usage information for the algorithm.
+        """
+        return self.tr(
+            """This is an example algorithm that takes a vector layer and creates a new identical one.
+        It is meant to be used as an example of how to create your own algorithms and explain methods and variables used to do it. An algorithm like this will be available in all elements, and there is not need for additional work.
+        All Processing algorithms should extend the QgsProcessingAlgorithm class."""
+        )
+
+    def helpUrl(self):
+        """
+        Returns the URL of a web page where help for the algorithm can be found.
+        """
+        return "https://qgis.org"
+
+
+class QPLPPI(QgsProcessingLayerPostProcessorInterface):
+    """ https://qgis.org/pyqgis/3.28/core/QgsProcessingLayerPostProcessorInterface.html
+    """
+    def __init__(self):
+        super().__init__()
+
+    def postProcessLayer(self, layer, context, feedback):
+        # def postProcessLayer(self, layer: QgsMapLayer, context: QgsProcessingContext, feedback: QgsProcessingFeedback):
+        pass

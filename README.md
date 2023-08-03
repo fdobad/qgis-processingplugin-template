@@ -56,6 +56,7 @@ Calling order
 
 # References
 
+/usr/share/qgis/python/plugins/processing/algs/gdal
 https://qgis.org/pyqgis/
 https://docs.qgis.org/3.28/en/docs/user_manual/processing/scripts.html#input-and-output-types-for-processing-algorithms
 https://www.faunalia.eu/en/blog/2019-07-02-custom-processing-widget

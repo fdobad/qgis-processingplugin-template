@@ -21,14 +21,11 @@
  *                                                                         *
  ***************************************************************************/
 """
-
 __author__ = "fdo"
 __date__ = "2023-07-12"
 __copyright__ = "(C) 2023 by fdo"
-
-# This will get replaced with a git SHA1 when you do a git archive
-
 __version__ = "$Format:%H$"
+
 from os import sep
 from pathlib import Path
 from time import sleep
@@ -36,11 +33,12 @@ from time import sleep
 import numpy as np
 import qgis
 from grassprovider.Grass7Utils import Grass7Utils
+from osgeo import gdal
 from pandas import DataFrame
 from processing.tools.system import getTempFilename
 from qgis.core import (QgsFeatureSink, QgsMessageLog, QgsProcessing,
-                       QgsProcessingAlgorithm, QgsProcessingFeedback,
-                       QgsProcessingParameterDefinition,
+                       QgsProcessingAlgorithm, QgsProcessingException,
+                       QgsProcessingFeedback, QgsProcessingParameterDefinition,
                        QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFileDestination,
@@ -48,6 +46,8 @@ from qgis.core import (QgsFeatureSink, QgsMessageLog, QgsProcessing,
                        QgsProcessingParameterRasterDestination,
                        QgsProcessingParameterRasterLayer, QgsProject)
 from qgis.PyQt.QtCore import QCoreApplication
+
+from .qgis_utils import array2rasterInt16, getRaster
 
 
 class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
@@ -77,9 +77,6 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         Here we define the inputs and output of the algorithm, along
         with some other properties.
         """
-
-        # We add the input vector features source. It can have any kind of
-        # geometry.
         self.addParameter(
             QgsProcessingParameterRasterLayer(
                 self.INPUT_layer,
@@ -99,25 +96,31 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         )
         qppn.setMetadata({"widget_wrapper": {"decimals": 3}})
         self.addParameter(qppn)
-
-        # We add a feature sink in which to store our processed features (this
-        # usually takes the form of a newly created vector layer when the
-        # algorithm is run in QGIS).
+        # devuelve nombre
         # QgsProcessingParameterRasterDestination(name: str, description: str = '', defaultValue: Any = None, optional: bool = False, createByDefault: bool = True)
-        # QgsProcessingParameterRasterDestination(
+
         self.addParameter(
-            QgsProcessingParameterFeatureSink(
-                self.OUTPUT_layer,
-                self.tr("Output layer"),
-                QgsProcessing.TypeRaster,
-            )
+            # QgsProcessingParameterRasterDestination(
+            RasterDestinationGpkg(self.OUTPUT_layer, self.tr("Output layer"))
         )
+        # , defaultValue='output.gpkg' pierde el lugar tmp
+
+        # devuelve in memory memory:Output layer
+        # self.addParameter(
+        #     QgsProcessingParameterFeatureSink(
+        #         self.OUTPUT_layer,
+        #         self.tr("Output layer"),
+        #         QgsProcessing.TypeRaster,
+        #     )
+        # )
+        # devuelve obj con fields?
         # self.addParameter(
         #    QgsProcessingParameterFeatureSink(
         #        self.OUTPUT_csv, self.tr("CSV Output"), QgsProcessing.TypeFile
         #    )
         # )
 
+        # QgsProcessingParameterFileDestination(name: str, description: str = '', fileFilter: str = '', defaultValue: Any = None, optional: bool = False, createByDefault: bool = True)
         defaultValue = QgsProject().instance().absolutePath()
         defaultValue = (
             defaultValue + sep + "statistics.csv" if defaultValue != "" else None
@@ -125,6 +128,7 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         qparamfd = QgsProcessingParameterFileDestination(
             self.OUTPUT_csv,
             self.tr("CSV statistics file output (overwrites!)"),
+            fileFilter="CSV files (*.csv)",
             defaultValue=defaultValue,
         )
         qparamfd.setMetadata({"widget_wrapper": {"dontconfirmoverwrite": True}})
@@ -141,6 +145,8 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         feedback.pushCommandInfo(
             f"input_layer: {input_layer}, type: {type(input_layer)}"
         )
+        data = getRaster(input_layer)
+        feedback.pushCommandInfo(f"data: {data}, type: {type(data)}")
 
         ratio = self.parameterAsDouble(parameters, self.INPUT_ratio, context)
         feedback.pushCommandInfo(f"ratio {ratio}, type: {type(ratio)}")
@@ -149,29 +155,28 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         feedback.pushCommandInfo(
             f"output_file: {output_file}, type: {type(output_file)}"
         )
-
         df = DataFrame(np.random.randint(0, 10, (4, 3)), columns=["a", "b", "c"])
         df.to_csv(output_file, index=False)
 
-        output_layer = self.parameterAsOutputLayer(
+        # returns a default tif name
+        output_layer_filename = self.parameterAsOutputLayer(
             parameters, self.OUTPUT_layer, context
         )
         feedback.pushCommandInfo(
-            f"output_layer: {output_layer}, type: {type(output_layer)}"
+            # f"output_layer_filename: {output_layer_filename}, type: {type(output_layer_filename)}"
+            f"isfile: {Path(output_layer_filename).is_file()}"
+            # f"file size:{Path(output_layer_filename).stat().st_size}"
         )
-        outFormat = Grass7Utils.getRasterFormatFromFilename(output_layer)
+        outFormat = Grass7Utils.getRasterFormatFromFilename(output_layer_filename)
         feedback.pushCommandInfo(f"outFormat: {outFormat}")
-        # Output results ('map' layer)
-        createOpt = None
-        # createOpt = self.parameterAsString(
-        #     parameters, self.GRASS_RASTER_FORMAT_OPT, context
-        # )
-        metaOpt = None
-        # metaOpt = self.parameterAsString(
-        #     parameters, self.GRASS_RASTER_FORMAT_META, context
-        # )
-        grassName = None  # self.exportedLayers["map"]
-        # self.exportRasterLayer(grassName, fileName, True, outFormat, createOpt, metaOpt)
+        array2rasterInt16(
+            data,
+            "a_IDENTIFIER",
+            output_layer_filename,
+            input_layer.extent(),
+            input_layer.crs(),
+            nodata=0,
+        )
 
         total = 10
         for i in range(total):
@@ -182,7 +187,7 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
             # Update the progress bar
             feedback.setProgress(100 * i / total)
 
-        return {self.OUTPUT_layer: output_layer, self.OUTPUT_csv: output_file}
+        return {self.OUTPUT_layer: output_layer_filename, self.OUTPUT_csv: output_file}
 
     def name(self):
         """
@@ -192,7 +197,7 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         lowercase alphanumeric characters only and no spaces or other
         formatting characters.
         """
-        return "Knapsack Optimization Fuel Layer Treatment"
+        return "Raster Knapsack Optimization"
 
     def displayName(self):
         """
@@ -223,3 +228,20 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
 
     def createInstance(self):
         return ProcessingPluginClassAlgorithm_knapsack()
+
+
+class RasterDestinationGpkg(QgsProcessingParameterRasterDestination):
+    """overrides the defaultFileExtension method to gpkg
+    ALTERNATIVE:
+    from types import MethodType
+    QPPRD = QgsProcessingParameterRasterDestination(self.OUTPUT_layer, self.tr("Output layer"))
+    def _defaultFileExtension(self):
+        return "gpkg"
+    QPPRD.defaultFileExtension = MethodType(_defaultFileExtension, QPPRD)
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def defaultFileExtension(self):
+        return "gpkg"

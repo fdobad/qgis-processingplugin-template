@@ -238,6 +238,22 @@ class ProcessingPluginClassAlgorithm(QgsProcessingAlgorithm):
         # statistics, etc. These should all be included in the returned
         # dictionary, with keys matching the feature corresponding parameter
         # or output names.
+
+        # devuelve in memory memory:Output layer
+        # self.addParameter(
+        #     QgsProcessingParameterFeatureSink(
+        #         self.OUTPUT_layer,
+        #         self.tr("Output layer"),
+        #         QgsProcessing.TypeRaster,
+        #     )
+        # )
+        # devuelve obj con fields?
+        # self.addParameter(
+        #    QgsProcessingParameterFeatureSink(
+        #        self.OUTPUT_csv, self.tr("CSV Output"), QgsProcessing.TypeFile
+        #    )
+        # )
+
         return {self.OUTPUT: dest_id}
 
     def name(self):

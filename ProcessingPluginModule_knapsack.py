@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 """
 /***************************************************************************
  ProcessingPluginClass
@@ -26,16 +25,20 @@ __date__ = "2023-07-12"
 __copyright__ = "(C) 2023 by fdo"
 __version__ = "$Format:%H$"
 
+from contextlib import redirect_stderr, redirect_stdout
+from functools import reduce
+from io import StringIO
 from os import sep
 from pathlib import Path
 from time import sleep
 
 import numpy as np
-import qgis
 from grassprovider.Grass7Utils import Grass7Utils
 from osgeo import gdal
 from pandas import DataFrame
 from processing.tools.system import getTempFilename
+from pyomo import environ as pyo
+from pyomo.opt import SolverStatus, TerminationCondition
 from qgis.core import (QgsFeatureSink, QgsMessageLog, QgsProcessing,
                        QgsProcessingAlgorithm, QgsProcessingException,
                        QgsProcessingFeedback, QgsProcessingParameterDefinition,
@@ -46,8 +49,7 @@ from qgis.core import (QgsFeatureSink, QgsMessageLog, QgsProcessing,
                        QgsProcessingParameterRasterDestination,
                        QgsProcessingParameterRasterLayer, QgsProject)
 from qgis.PyQt.QtCore import QCoreApplication
-
-from .qgis_utils import array2rasterInt16, getRaster
+from scipy import stats
 
 
 class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
@@ -69,7 +71,8 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
     # calling from the QGIS console.
     OUTPUT_layer = "OUTPUT_layer"
     OUTPUT_csv = "OUTPUT_csv"
-    INPUT_layer = "INPUT_layer"
+    INPUT_value = "INPUT_value"
+    INPUT_weight = "INPUT_weight"
     INPUT_ratio = "INPUT_ratio"
 
     def initAlgorithm(self, config):
@@ -77,17 +80,28 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         Here we define the inputs and output of the algorithm, along
         with some other properties.
         """
+        # value
         self.addParameter(
             QgsProcessingParameterRasterLayer(
-                self.INPUT_layer,
-                self.tr("Input layer"),
-                [QgsProcessing.TypeRaster],
+                name=self.INPUT_value,
+                description=self.tr("Values layer (if blank 0's will be used)"),
+                defaultValue=[QgsProcessing.TypeRaster],
+                optional=True,
             )
         )
-        # double
+        # weight
+        self.addParameter(
+            QgsProcessingParameterRasterLayer(
+                name=self.INPUT_weight,
+                description=self.tr("Weights layer (if blank 1's will be used)"),
+                defaultValue=[QgsProcessing.TypeRaster],
+                optional=True,
+            )
+        )
+        # ratio double
         qppn = QgsProcessingParameterNumber(
             name=self.INPUT_ratio,
-            description=self.tr("Input ratio to choose"),
+            description=self.tr("Capacity ratio (1 = weight.sum)"),
             type=QgsProcessingParameterNumber.Double,
             defaultValue=0.069,
             optional=False,
@@ -96,38 +110,20 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         )
         qppn.setMetadata({"widget_wrapper": {"decimals": 3}})
         self.addParameter(qppn)
-        # devuelve nombre
-        # QgsProcessingParameterRasterDestination(name: str, description: str = '', defaultValue: Any = None, optional: bool = False, createByDefault: bool = True)
 
+        # QgsProcessingParameterRasterDestination(name: str, description: str = '', defaultValue: Any = None, optional: bool = False, createByDefault: bool = True)
         self.addParameter(
             # QgsProcessingParameterRasterDestination(
             RasterDestinationGpkg(self.OUTPUT_layer, self.tr("Output layer"))
         )
         # , defaultValue='output.gpkg' pierde el lugar tmp
 
-        # devuelve in memory memory:Output layer
-        # self.addParameter(
-        #     QgsProcessingParameterFeatureSink(
-        #         self.OUTPUT_layer,
-        #         self.tr("Output layer"),
-        #         QgsProcessing.TypeRaster,
-        #     )
-        # )
-        # devuelve obj con fields?
-        # self.addParameter(
-        #    QgsProcessingParameterFeatureSink(
-        #        self.OUTPUT_csv, self.tr("CSV Output"), QgsProcessing.TypeFile
-        #    )
-        # )
-
         # QgsProcessingParameterFileDestination(name: str, description: str = '', fileFilter: str = '', defaultValue: Any = None, optional: bool = False, createByDefault: bool = True)
         defaultValue = QgsProject().instance().absolutePath()
-        defaultValue = (
-            defaultValue + sep + "statistics.csv" if defaultValue != "" else None
-        )
+        defaultValue = defaultValue + sep + "statistics.csv" if defaultValue != "" else None
         qparamfd = QgsProcessingParameterFileDestination(
-            self.OUTPUT_csv,
-            self.tr("CSV statistics file output (overwrites!)"),
+            name=self.OUTPUT_csv,
+            description=self.tr("CSV statistics file output (overwrites!)"),
             fileFilter="CSV files (*.csv)",
             defaultValue=defaultValue,
         )
@@ -135,33 +131,166 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         self.addParameter(qparamfd)
 
     def processAlgorithm(self, parameters, context, feedback):
-        """
-        Here is where the processing itself takes place.
-        """
-        feedback.pushCommandInfo(f"parameters {parameters}")
-        feedback.pushCommandInfo(f"context args: {context.asQgisProcessArguments()}")
+        # feedback.pushCommandInfo(f"processAlgorithm START")
+        # feedback.pushCommandInfo(f"parameters {parameters}")
+        # feedback.pushCommandInfo(f"context args: {context.asQgisProcessArguments()}")
 
-        input_layer = self.parameterAsRasterLayer(parameters, self.INPUT_layer, context)
+        value_layer = self.parameterAsRasterLayer(parameters, self.INPUT_value, context)
+        value_data = get_raster_data(value_layer)
+        value_nodata = get_raster_nodata(value_layer)
+        value_map_info = get_raster_info(value_layer)
+
+        weight_layer = self.parameterAsRasterLayer(parameters, self.INPUT_weight, context)
+        weight_data = get_raster_data(weight_layer)
+        weight_nodata = get_raster_nodata(weight_layer)
+        weight_map_info = get_raster_info(weight_layer)
+
+        if value_layer and weight_layer:
+            assert (
+                value_map_info["width"] == weight_map_info["width"]
+                and value_map_info["height"] == weight_map_info["height"]
+                and value_map_info["cellsize_x"] == weight_map_info["cellsize_x"]
+                and value_map_info["cellsize_y"] == weight_map_info["cellsize_y"]
+            ), feedback.reportError("Layers must have the same width, height and cellsizes")
+            width, height, extent, crs, _, _ = value_map_info.values()
+        elif value_layer and not weight_layer:
+            width, height, extent, crs, _, _ = value_map_info.values()
+            weight_data = np.ones(height * width)
+        elif not value_layer and weight_layer:
+            width, height, extent, crs, _, _ = weight_map_info.values()
+            value_data = np.zeros(height * width)
+
+        N = width * height
+
+        feedback.pushCommandInfo(f"width: {width}, height: {height}, extent: {extent}, crs: {crs}")
         feedback.pushCommandInfo(
-            f"input_layer: {input_layer}, type: {type(input_layer)}"
+            f"value !=0: {np.any(value_data!=0)}\n"
+            f" nodata: {value_nodata}\n"
+            f" preview: {value_data}\n"
+            f" stats: {stats.describe(value_data)}\n"
         )
-        data = getRaster(input_layer)
-        feedback.pushCommandInfo(f"data: {data}, type: {type(data)}")
+        feedback.pushCommandInfo(
+            f"weight !=1: {np.any(weight_data!=1)}\n"
+            f" nodata: {weight_nodata}\n"
+            f" preview: {weight_data}\n"
+            f" stats: {stats.describe(weight_data)}\n"
+        )
+
+        if isinstance(value_nodata, list):
+            feedback.pushError(f"value_nodata: {value_nodata}")
+        if isinstance(weight_nodata, list):
+            feedback.pushError(f"weight_nodata: {weight_nodata}")
+
+        no_indexes = reduce(
+            np.union1d,
+            (
+                np.where(value_data == value_nodata)[0],
+                np.where(value_data == 0)[0],
+                np.where(weight_data == weight_nodata)[0],
+            ),
+        )
+        feedback.pushCommandInfo(f"discarded pixels (no_indexes): {len(no_indexes)/N:.2%}")
+        mask = np.ones(N, dtype=bool)
+        mask[no_indexes] = False
 
         ratio = self.parameterAsDouble(parameters, self.INPUT_ratio, context)
-        feedback.pushCommandInfo(f"ratio {ratio}, type: {type(ratio)}")
+        weight_sum = weight_data[mask].sum()
+        capacity = round(weight_sum * ratio)
+        feedback.pushCommandInfo(f"ratio {ratio}, weight_sum: {weight_sum}, capacity: {capacity}")
+
+        feedback.setProgress(5)
+        feedback.setProgressText(f"rasters processed 5%")
+
+        # def bounds_rule(m, i):
+        #     if i in no_indexes:
+        #         return (0, 0)
+        #     return (0, 1)
+
+        m = pyo.ConcreteModel()
+        # m.N = pyo.RangeSet(0, width * height - 1) # w*h - len(fix_list)
+        m.N = pyo.RangeSet(0, N - len(no_indexes) - 1)
+        m.Cap = pyo.Param(initialize=capacity)
+        # m.We = pyo.Param(m.N, within=pyo.Reals, initialize=weight_data)
+        # m.Va = pyo.Param(m.N, within=pyo.Reals, initialize=value_data)
+        m.We = pyo.Param(m.N, within=pyo.Reals, initialize=weight_data[mask])
+        m.Va = pyo.Param(m.N, within=pyo.Reals, initialize=value_data[mask])
+        # m.X = pyo.Var(m.N, within=pyo.Binary, bounds=bounds_rule)
+        m.X = pyo.Var(m.N, within=pyo.Binary)
+        obj_expr = pyo.sum_product(m.X, m.Va, index=m.N)
+        m.obj = pyo.Objective(expr=obj_expr, sense=pyo.maximize)
+
+        def capacity_rule(m):
+            return pyo.sum_product(m.X, m.We, index=m.N) <= m.Cap
+
+        m.capacity = pyo.Constraint(rule=capacity_rule)
+
+        # check if solver is available
+        # SolverFactory('glpk').available() == True
+        solver = [
+            "scipy.fsolve",
+            "scipy.newton",
+            "scipy.root",
+            "scipy.secant-newton",
+            "ipopt",
+            "cbc",
+        ][-1]
+        opt = pyo.SolverFactory(solver)
+
+        feedback.setProgress(10)
+        feedback.setProgressText("pyomo model built 10%")
+
+        pyomo_std_feedback = FileLikeFeedback(feedback, True)
+        pyomo_err_feedback = FileLikeFeedback(feedback, False)
+        with redirect_stdout(pyomo_std_feedback), redirect_stderr(pyomo_err_feedback):
+            results = opt.solve(m, tee=True, options_string="ratioGap=0.01 seconds=300")
+            # TODO
+            # # Stop the algorithm if cancel button has been clicked
+            # if feedback.isCanceled():
+
+        status = results.solver.status
+        termCondition = results.solver.termination_condition
+
+        if status in [SolverStatus.error, SolverStatus.aborted, SolverStatus.unknown]:
+            feedback.reportError(f"Solver status: {status}, termination condition: {termCondition}")
+            return {self.OUTPUT_layer: None, self.OUTPUT_csv: None}
+        if termCondition in [
+            TerminationCondition.infeasibleOrUnbounded,
+            TerminationCondition.infeasible,
+            TerminationCondition.unbounded,
+        ]:
+            feedback.reportError(f"Optimization problem is {termCondition}. No output is generated.")
+            return {self.OUTPUT_layer: None, self.OUTPUT_csv: None}
+        if not termCondition == TerminationCondition.optimal:
+            feedback.pushWarning("Output is generated for a non-optimal solution.")
+
+        feedback.setProgress(80)
+        feedback.setProgressText("pyomo model solved 80%")
+
+        response = np.array([pyo.value(m.X[i], exception=False) for i in m.X])
+        response[response == None] = 2
+        response = response.astype(np.int16)
+        base = -np.ones(N, dtype=np.int16)
+        base[mask] = response
+        base.resize(height, width)
+
+        # 'glpk')
+        # solved = solver.solve(model, tee=True, options_string="mipgap=0.01 tmlim=300")
+
+        # dens = value_data / weight_data
+        # asort = np.argsort(dens)
+        # feedback.pushCommandInfo("c,i,j,x,wei,val,den")
+        # for c in asort:
+        #     i, j = id2xy(c, width, height)
+        #     feedback.pushCommandInfo(
+        #             f"px:{c}, i:{i}, j:{j}, x:{m.X[i + j * width].value}, w:{weight_data[c]:.4f}, v:{value_data[c]:.4f}, d:{value_data[c] / weight_data[c]:.4f}"
+        #     )
 
         output_file = self.parameterAsFileOutput(parameters, self.OUTPUT_csv, context)
-        feedback.pushCommandInfo(
-            f"output_file: {output_file}, type: {type(output_file)}"
-        )
+        feedback.pushCommandInfo(f"output_file: {output_file}, type: {type(output_file)}")
         df = DataFrame(np.random.randint(0, 10, (4, 3)), columns=["a", "b", "c"])
         df.to_csv(output_file, index=False)
 
-        # returns a default tif name
-        output_layer_filename = self.parameterAsOutputLayer(
-            parameters, self.OUTPUT_layer, context
-        )
+        output_layer_filename = self.parameterAsOutputLayer(parameters, self.OUTPUT_layer, context)
         feedback.pushCommandInfo(
             # f"output_layer_filename: {output_layer_filename}, type: {type(output_layer_filename)}"
             f"isfile: {Path(output_layer_filename).is_file()}"
@@ -169,24 +298,20 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         )
         outFormat = Grass7Utils.getRasterFormatFromFilename(output_layer_filename)
         feedback.pushCommandInfo(f"outFormat: {outFormat}")
+
+        feedback.pushCommandInfo(f"response is !=0: {np.any(response != 0)}")
         array2rasterInt16(
-            data,
-            "a_IDENTIFIER",
+            # response,
+            base,
+            "knapsack",
             output_layer_filename,
-            input_layer.extent(),
-            input_layer.crs(),
-            nodata=0,
+            extent,
+            crs,
+            nodata=-1,
         )
 
-        total = 10
-        for i in range(total):
-            # Stop the algorithm if cancel button has been clicked
-            if feedback.isCanceled():
-                break
-            sleep(0.1)
-            # Update the progress bar
-            feedback.setProgress(100 * i / total)
-
+        feedback.setProgress(100)
+        # feedback.pushCommandInfo(f"processAlgorithm END")
         return {self.OUTPUT_layer: output_layer_filename, self.OUTPUT_csv: output_file}
 
     def name(self):
@@ -245,3 +370,95 @@ class RasterDestinationGpkg(QgsProcessingParameterRasterDestination):
 
     def defaultFileExtension(self):
         return "gpkg"
+
+
+def id2xy(idx, w=6, h=4):
+    """idx: index, w: width, h:height"""
+    return idx % w, idx // w
+
+
+def get_raster_data(layer):
+    """raster layer into numpy array
+        slower alternative:
+            for i in range(lyr.width()):
+                for j in range(lyr.height()):
+                    values.append(block.value(i,j))
+    # npArr = np.frombuffer( qByteArray)  #,dtype=float)
+    # return npArr.reshape( (layer.height(),layer.width()))
+    """
+    if layer:
+        provider = layer.dataProvider()
+        block = provider.block(1, layer.extent(), layer.width(), layer.height())
+        qByteArray = block.data()
+        return np.frombuffer(qByteArray)  # ,dtype=float)
+
+
+def get_raster_nodata(layer):
+    if layer:
+        dp = layer.dataProvider()
+        if dp.sourceHasNoDataValue(1):
+            return dp.sourceNoDataValue(1)
+
+
+def get_raster_info(layer):
+    if layer:
+        return {
+            "width": layer.width(),
+            "height": layer.height(),
+            "extent": layer.extent(),
+            "crs": layer.crs(),
+            "cellsize_x": layer.rasterUnitsPerPixelX(),
+            "cellsize_y": layer.rasterUnitsPerPixelY(),
+        }
+
+
+class FileLikeFeedback(StringIO):
+    def __init__(self, feedback, std):
+        super().__init__()
+        self.feedback = feedback
+        self.std = std
+        if self.std:
+            self.print = self.feedback.pushConsoleInfo
+        else:
+            self.print = self.feedback.pushWarning
+        self.feedback.pushWarning(f"{self.std} FileLikeFeedback init")
+
+    def write(self, msg):
+        super().write(msg)
+        self.feedback.pushWarning(f"{self.std} FileLikeFeedback write")
+
+    def flush(self):
+        # self.feedback.pushConsoleInfo(super().getvalue())
+        self.print(super().getvalue())
+        super().__init__()
+        self.feedback.pushWarning(f"{self.std} FileLikeFeedback flush")
+
+
+# class FileLikeFeedback:
+#     def __init__(self, feedback):
+#         super().__init__()
+#         self.feedback = feedback
+#     def write(self, msg):
+#        self.msg+=msg
+#     def flush(self):
+#        self.feedback.pushConsoleInfo(self.msg)
+#        self.msg = ""
+
+
+def array2rasterInt16(data, name, geopackage, extent, crs, nodata=None):
+    """numpy array to gpkg casts to name"""
+    data = np.int16(data)
+    h, w = data.shape
+    bites = QByteArray(data.tobytes())
+    block = QgsRasterBlock(Qgis.CInt16, w, h)
+    block.setData(bites)
+    fw = QgsRasterFileWriter(str(geopackage))
+    fw.setOutputFormat("gpkg")
+    fw.setCreateOptions(["RASTER_TABLE=" + name, "APPEND_SUBDATASET=YES"])
+    provider = fw.createOneBandRaster(Qgis.Int16, w, h, extent, crs)
+    provider.setEditable(True)
+    provider.writeBlock(block, 1, 0, 0)
+    if nodata != None:
+        provider.setNoDataValue(1, nodata)
+    provider.setEditable(False)
+    del provider, fw, block

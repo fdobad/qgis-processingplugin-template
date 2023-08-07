@@ -38,18 +38,34 @@ from osgeo import gdal
 from pandas import DataFrame
 from processing.tools.system import getTempFilename
 from pyomo import environ as pyo
-from pyomo.opt import SolverStatus, TerminationCondition
-from qgis.core import (QgsFeatureSink, QgsMessageLog, QgsProcessing,
+from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition
+from qgis.core import (Qgis, QgsFeatureSink, QgsMessageLog, QgsProcessing,
                        QgsProcessingAlgorithm, QgsProcessingException,
                        QgsProcessingFeedback, QgsProcessingParameterDefinition,
+                       QgsProcessingParameterEnum,
                        QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterFeatureSource,
+                       QgsProcessingParameterField,
                        QgsProcessingParameterFileDestination,
                        QgsProcessingParameterNumber,
                        QgsProcessingParameterRasterDestination,
-                       QgsProcessingParameterRasterLayer, QgsProject)
-from qgis.PyQt.QtCore import QCoreApplication
+                       QgsProcessingParameterRasterLayer,
+                       QgsProcessingParameterString, QgsProject,
+                       QgsRasterBlock, QgsRasterFileWriter)
+from qgis.PyQt.QtCore import QByteArray, QCoreApplication
 from scipy import stats
+
+SOLVER = {
+    "cbc": "ratioGap=0.001 seconds=300",
+    "glpk": "mipgap=0.001 tmlim=300",
+    "ipopt": "",
+    "gurobi": "mipgap=0.001 TimeLimit=300",
+    "cplex_direct": "mipgap=0.001 timelimit=300",
+    "scipy.fsolve": "",
+    "scipy.newton": "",
+    "scipy.root": "",
+    "scipy.secant-newton": "",
+}
 
 
 class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
@@ -130,6 +146,47 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         qparamfd.setMetadata({"widget_wrapper": {"dontconfirmoverwrite": True}})
         self.addParameter(qparamfd)
 
+        # check if solver is available
+        solver_available = [False] * len(SOLVER)
+        for i, solver in enumerate(SOLVER):
+            if SolverFactory(solver).available():
+                solver_available[i] = True
+        # QgsProcessingParameterEnum(name: str, description: str = '', options: Iterable[str] = [], allowMultiple: bool = False, defaultValue: Any = None, optional: bool = False)
+        # self.addParameter(
+        #     QgsProcessingParameterEnum(
+        #         name="SOLVER",
+        #         description="Available Solvers",
+        #         options=[solver for i, solver in enumerate(SOLVER) if solver_available[i]],
+        #         defaultValue=0,
+        #         optional=False,
+        #     )
+        # )
+
+        # gsProcessingParameterString(name: str, description: str = '', defaultValue: Any = None, multiLine: bool = False, optional: bool = False)
+        qpps = QgsProcessingParameterString(
+            name="SOLVER",
+            description="(Available) solvers: (default) options_string",
+        )
+        qpps.setMetadata(
+            {
+                "widget_wrapper": {
+                    "value_hints": [f"{k}: {v}" for i, (k, v) in enumerate(SOLVER.items()) if solver_available[i]],
+                    "setEditable": True,
+                }
+            }
+        )
+        qpps.setFlags(qpps.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        self.addParameter(qpps)
+
+        qpps2 = QgsProcessingParameterString(
+            name="CUSTOM_OPTIONS_STRING",
+            description="Override options_string (" " (single space) to use None)",
+            defaultValue="",
+            optional=True,
+        )
+        qpps2.setFlags(qpps2.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+        self.addParameter(qpps2)
+
     def processAlgorithm(self, parameters, context, feedback):
         # feedback.pushCommandInfo(f"processAlgorithm START")
         # feedback.pushCommandInfo(f"parameters {parameters}")
@@ -198,8 +255,8 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         capacity = round(weight_sum * ratio)
         feedback.pushCommandInfo(f"ratio {ratio}, weight_sum: {weight_sum}, capacity: {capacity}")
 
-        feedback.setProgress(5)
-        feedback.setProgressText(f"rasters processed 5%")
+        feedback.setProgress(10)
+        feedback.setProgressText(f"rasters processed 10%")
 
         # def bounds_rule(m, i):
         #     if i in no_indexes:
@@ -224,25 +281,29 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
 
         m.capacity = pyo.Constraint(rule=capacity_rule)
 
-        # check if solver is available
-        # SolverFactory('glpk').available() == True
-        solver = [
-            "scipy.fsolve",
-            "scipy.newton",
-            "scipy.root",
-            "scipy.secant-newton",
-            "ipopt",
-            "cbc",
-        ][-1]
-        opt = pyo.SolverFactory(solver)
+        solver_string = self.parameterAsString(parameters, "SOLVER", context)
+        feedback.pushWarning(f"solver_string:{solver_string}")
+        solver, options_string = solver_string.split(": ", 1) if ": " in solver_string else (solver_string, "")
+        feedback.pushWarning(f"solver:{solver}, options_string:{options_string}")
 
-        feedback.setProgress(10)
-        feedback.setProgressText("pyomo model built 10%")
+        if len(custom_options:= self.parameterAsString(parameters, "CUSTOM_OPTIONS_STRING", context))>0:
+            if custom_options == " ":
+                options_string = None
+            else:
+                options_string = custom_options
+        feedback.pushWarning(f"re options_string:{options_string}")
+
+        opt = SolverFactory(solver)
+        feedback.setProgress(20)
+        feedback.setProgressText("pyomo model built, solver object created 20%")
 
         pyomo_std_feedback = FileLikeFeedback(feedback, True)
         pyomo_err_feedback = FileLikeFeedback(feedback, False)
         with redirect_stdout(pyomo_std_feedback), redirect_stderr(pyomo_err_feedback):
-            results = opt.solve(m, tee=True, options_string="ratioGap=0.01 seconds=300")
+            if options_string:
+                results = opt.solve(m, tee=True, options_string=options_string)
+            else:
+                results = opt.solve(m, tee=True)
             # TODO
             # # Stop the algorithm if cancel button has been clicked
             # if feedback.isCanceled():
@@ -272,9 +333,6 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         base = -np.ones(N, dtype=np.int16)
         base[mask] = response
         base.resize(height, width)
-
-        # 'glpk')
-        # solved = solver.solve(model, tee=True, options_string="mipgap=0.01 tmlim=300")
 
         # dens = value_data / weight_data
         # asort = np.argsort(dens)
@@ -424,8 +482,9 @@ class FileLikeFeedback(StringIO):
         self.feedback.pushWarning(f"{self.std} FileLikeFeedback init")
 
     def write(self, msg):
-        super().write(msg)
         self.feedback.pushWarning(f"{self.std} FileLikeFeedback write")
+        super().write(msg)
+        self.flush()
 
     def flush(self):
         # self.feedback.pushConsoleInfo(super().getvalue())

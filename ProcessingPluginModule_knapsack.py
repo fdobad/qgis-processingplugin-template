@@ -180,7 +180,7 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
 
         qpps2 = QgsProcessingParameterString(
             name="CUSTOM_OPTIONS_STRING",
-            description="Override options_string (" " (single space) to use None)",
+            description="Override options_string (type a single space ' ' to not send any options to the solver)",
             defaultValue="",
             optional=True,
         )
@@ -258,20 +258,11 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         feedback.setProgress(10)
         feedback.setProgressText(f"rasters processed 10%")
 
-        # def bounds_rule(m, i):
-        #     if i in no_indexes:
-        #         return (0, 0)
-        #     return (0, 1)
-
         m = pyo.ConcreteModel()
-        # m.N = pyo.RangeSet(0, width * height - 1) # w*h - len(fix_list)
         m.N = pyo.RangeSet(0, N - len(no_indexes) - 1)
         m.Cap = pyo.Param(initialize=capacity)
-        # m.We = pyo.Param(m.N, within=pyo.Reals, initialize=weight_data)
-        # m.Va = pyo.Param(m.N, within=pyo.Reals, initialize=value_data)
         m.We = pyo.Param(m.N, within=pyo.Reals, initialize=weight_data[mask])
         m.Va = pyo.Param(m.N, within=pyo.Reals, initialize=value_data[mask])
-        # m.X = pyo.Var(m.N, within=pyo.Binary, bounds=bounds_rule)
         m.X = pyo.Var(m.N, within=pyo.Binary)
         obj_expr = pyo.sum_product(m.X, m.Va, index=m.N)
         m.obj = pyo.Objective(expr=obj_expr, sense=pyo.maximize)
@@ -286,7 +277,7 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         solver, options_string = solver_string.split(": ", 1) if ": " in solver_string else (solver_string, "")
         feedback.pushWarning(f"solver:{solver}, options_string:{options_string}")
 
-        if len(custom_options:= self.parameterAsString(parameters, "CUSTOM_OPTIONS_STRING", context))>0:
+        if len(custom_options := self.parameterAsString(parameters, "CUSTOM_OPTIONS_STRING", context)) > 0:
             if custom_options == " ":
                 options_string = None
             else:
@@ -411,6 +402,26 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
 
     def createInstance(self):
         return ProcessingPluginClassAlgorithm_knapsack()
+
+    def helpUrl(self):
+        return "https://www.github.com/fdobad/qgis-processingplugin-template/issues"
+
+    def shortDescription(self):
+        return self.tr(
+            """Optimizes the classical knapsack problem using layers as values and/or weights, returns a layer with the selected pixels."""
+        )
+
+    def shortHelpString(self):
+        return self.tr(
+            """Raster Knapsack Optimizer.
+By selecting a Values layer and/or a Weights layer, and setting the bound on the total capacity, a layer that maximizes the sum of the values of the selected pixels is created.
+
+Can use several MIP solver through pyomo: including CBC, GLPK, Gurobi, CPLEX, Ipopt, and others. And a custom options string can be passed to the solver. Installation of solvers is up to the user.
+
+The capacity constraint is set up by a ratio (between 0 and 1), that multiplies the sum of all (valid) weights. Hence 1 selects all pixels that are not 'No-Data' or with 0 value.
+
+Returns a new layer encoded: 0: not selected, 1: selected, 2: solver-problem/no-data."""
+        )
 
 
 class RasterDestinationGpkg(QgsProcessingParameterRasterDestination):

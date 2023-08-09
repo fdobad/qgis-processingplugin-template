@@ -14,7 +14,10 @@ Users can create a new raster layer that selects the most valuable pixels in a r
 
 Finally several solvers can be used (cbc, glpk, cplex_direct, ipopt, TODO gurobi, scipy), because the MIP is modeled through [pyomo](http://www.pyomo.org). Though is up to the user to install them, the plugin checks for availability before displaying them in the solver chooser comboBox. Also a solver options string is optionally configurable (i.e., set precision and time limits)
 
-# Installation [here](./qgis_plugin_installation.md)
+__Installation [here](./plugin_installation.md)__
+__Plugin repo link [here](./plugins.xml)__
+
+![screenshot](screenshot.png)
 
 # Usage
 ## Graphical

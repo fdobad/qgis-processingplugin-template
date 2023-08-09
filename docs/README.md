@@ -4,6 +4,8 @@
                 
             by fire2a.com research centre
 
+                     version=0.0.1
+
 This repo is a template to [QGIS plugin](https://plugins.qgis.org/) processing toolbox plugins.
 
 Its main content is an integration between QGIS rasters and a knapsack optimization MIP.

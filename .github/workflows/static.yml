@@ -36,7 +36,7 @@ jobs:
         run: |
            VERSION=${GITHUB_REF_NAME#docs}
            echo "version is ${VERSION}"
-           sed -i -e "s/version=0.0.1/version=${VERSION}/" doc/README.md
+           sed -i -e "s/version=0.0.1/version=${VERSION}/" docs/README.md
 
       - name: Setup Pages
         uses: actions/configure-pages@v3

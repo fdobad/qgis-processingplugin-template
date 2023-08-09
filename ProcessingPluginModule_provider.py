@@ -68,7 +68,7 @@ class ProcessingPluginClassProvider(QgsProcessingProvider):
         string should be a unique, short, character only string, eg "qgis" or
         "gdal". This string should not be localised.
         """
-        return "Fire2a"
+        return "fire2am"
 
     def name(self):
         """
@@ -77,7 +77,7 @@ class ProcessingPluginClassProvider(QgsProcessingProvider):
 
         This string should be short (e.g. "Lastools") and localised.
         """
-        return self.tr("Fire2a")
+        return self.tr("Fire Analytics & Management")
 
     def icon(self):
         """

@@ -264,21 +264,22 @@ class ProcessingPluginClassAlgorithm(QgsProcessingAlgorithm):
         lowercase alphanumeric characters only and no spaces or other
         formatting characters.
         """
-        return "Template Processing Algorithm"
+        return "templateprocessingalgorithm"
 
     def displayName(self):
         """
         Returns the translated algorithm name, which should be used for any
         user-visible display of the algorithm name.
-        """
         return self.tr(self.name())
+        """
+        return self.tr("Template Sandbox")
 
     def group(self):
         """
         Returns the name of the group this algorithm belongs to. This string
         should be localised.
         """
-        return self.tr(self.groupId())
+        return self.tr("Experimental")
 
     def groupId(self):
         """
@@ -288,7 +289,7 @@ class ProcessingPluginClassAlgorithm(QgsProcessingAlgorithm):
         contain lowercase alphanumeric characters only and no spaces or other
         formatting characters.
         """
-        return "Fire A A & M"
+        return "experimental"
 
     def tr(self, string):
         return QCoreApplication.translate("Processing", string)

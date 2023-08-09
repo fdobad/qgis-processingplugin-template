@@ -371,31 +371,14 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
         lowercase alphanumeric characters only and no spaces or other
         formatting characters.
         """
-        return "Raster Knapsack Optimization"
+        return "rasterknapsackoptimization"
 
     def displayName(self):
         """
         Returns the translated algorithm name, which should be used for any
         user-visible display of the algorithm name.
         """
-        return self.tr(self.name())
-
-    def group(self):
-        """
-        Returns the name of the group this algorithm belongs to. This string
-        should be localised.
-        """
-        return self.tr(self.groupId())
-
-    def groupId(self):
-        """
-        Returns the unique ID of the group this algorithm belongs to. This
-        string should be fixed for the algorithm, and must not be localised.
-        The group id should be unique within each provider. Group id should
-        contain lowercase alphanumeric characters only and no spaces or other
-        formatting characters.
-        """
-        return "Fire A A & M"
+        return self.tr("Raster Knapsack Optimization")
 
     def tr(self, string):
         return QCoreApplication.translate("Processing", string)
@@ -413,15 +396,17 @@ class ProcessingPluginClassAlgorithm_knapsack(QgsProcessingAlgorithm):
 
     def shortHelpString(self):
         return self.tr(
-            """Raster Knapsack Optimizer.
-By selecting a Values layer and/or a Weights layer, and setting the bound on the total capacity, a layer that maximizes the sum of the values of the selected pixels is created.
+            """By selecting a Values layer and/or a Weights layer, and setting the bound on the total capacity, a layer that maximizes the sum of the values of the selected pixels is created.
 
 Can use several MIP solver through pyomo: including CBC, GLPK, Gurobi, CPLEX, Ipopt, and others. And a custom options string can be passed to the solver. Installation of solvers is up to the user.
 
-The capacity constraint is set up by a ratio (between 0 and 1), that multiplies the sum of all (valid) weights. Hence 1 selects all pixels that are not 'No-Data' or with 0 value.
+The capacity constraint is set up by choosing a ratio (between 0 and 1), that multiplies the sum of all (valid) weights. Hence 1 selects all pixels that are not 'No-Data' or with 0 value.
 
 Returns a new layer encoded: 0: not selected, 1: selected, 2: solver-problem/no-data."""
         )
+
+    def helpString(self):
+        return self.shortHelpString()
 
 
 class RasterDestinationGpkg(QgsProcessingParameterRasterDestination):

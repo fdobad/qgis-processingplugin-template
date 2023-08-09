@@ -9,7 +9,7 @@ Go to [windows detailed instructions](#windows)
 4. Install the plugin
 
 ## Step 3 alternatives
-3.B. Download & unzip a release from the [repo](https://github.com/fdobad/qgis-processingplugin-template/releases) releases section
+3.B. Download & unzip a release from the repo [releases](https://github.com/fdobad/qgis-processingplugin-template/releases) section  
 3.C. Fork or clone the [repo](https://github.com/fdobad/qgis-processingplugin-template) and contribute!
 Both options must end up with this folder:
 ```
@@ -21,9 +21,9 @@ Both options must end up with this folder:
 ```
 
 ## Step 2 Installing dependencies
-Two parts: pip install python requirements and MIP solvers
+Two parts: pip install python requirements and MIP solvers  
 ### python
-Save link as: [requirements.txt](https://raw.githubusercontent.com/fdobad/qgis-processingplugin-template/main/requirements.txt) (for developers [requirements.dev.txt](https://github.com/fdobad/qgis-processingplugin-template/blob/main/requirements.dev.txt)
+Save link as: [requirements.txt](https://raw.githubusercontent.com/fdobad/qgis-processingplugin-template/main/requirements.txt) (for developers [requirements.dev.txt](https://github.com/fdobad/qgis-processingplugin-template/blob/main/requirements.dev.txt))
 ```
 $ mkdir ~/<your_qgis_env_path>
 $ python3 -m venv --system-site-packages ~/<your_qgis_env_path>  
@@ -80,7 +80,7 @@ TODO
 
 | Animated steps 2, 3 & 4 |
 | --- |
-| 2. Install the plugin requirements (on qgis's python) |
+| 2. Install the plugin requirements (on QGIS's python) |
 |<img src="img/install_win_pip_requirements.gif"  alt='cannot load image' height=300px >|
 | 3. Add fire2a's plugin repository & 4. Install the plugin __(FOR ALL PLATFORMS!!)__ <a id="my-anchor"></a> |
 |<img src="img/install_plugin_server.gif"  alt='cannot load image' height=300px >|

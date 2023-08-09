@@ -37,6 +37,11 @@ Calling order
     sed -i -e "s/version=0.0.1/version=${VERSION}/" metadata.txt
     git archive --format=zip --prefix=archived/ --add-file=metadata.txt --output archive.zip HEAD
 
+# Github Actions
+Action1: Documentation build and deploy based on [this](https://github.com/actions/starter-workflows/blob/main/pages/jekyll-gh-pages.yml)  
+
+Action2: Auto-release on pushing tags
+
 # TRASH 
 ## github action to ammend a commit ?
 

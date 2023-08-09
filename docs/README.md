@@ -6,27 +6,27 @@
 
                      version=0.0.1
 
-This repo is a template to [QGIS plugin](https://plugins.qgis.org/) processing toolbox plugins.
+[This repo](https://github.com/fdobad/qgis-processingplugin-template) is a template for QGIS [processing toolbox](https://docs.qgis.org/latest/en/docs/user_manual/processing/toolbox.html) [plugins](https://plugins.qgis.org).
 
-Its main content is an integration between QGIS rasters and a knapsack optimization MIP.
+Its main content is a proof-of-concept integration between QGIS rasters and a knapsack optimization MIP model.
 
-Users can create a new raster layer that selects the most valuable pixels in a raster, according to a capacity constraint defined by another -optional- raster and a fractional ratio. This can be achieved graphically by the processing tool box interface, or programatically via python scripts and the processing module provided by qgis.
+Users can create a new raster layer that selects the most valuable pixels in a raster, according to a capacity constraint defined by another -optional- raster and a fractional ratio. This can be achieved graphically by the processing tool box interface, or programatically via python scripts.
 
-Finally several solvers can be used (cbc, glpk, cplex_direct, ipopt, TODO gurobi, scipy), because the MIP is modeled through [pyomo](http://www.pyomo.org). Though is up to the user to install them, the plugin checks for availability before displaying them in the solver chooser comboBox. Also a solver options string is optionally configurable (i.e., set precision and time limits)
+Finally several solvers can be used (cbc, glpk, cplex_direct, ipopt, TODO gurobi, scipy), thanks to the MIP being modeled and solved through [pyomo](http://www.pyomo.org). Though is up to the user to install each solver, the plugin checks for availability before displaying them in the solver chooser comboBox. Also a solver options string is optionally configurable (i.e., set precision and time limits)
 
-__Installation [here](./plugin_installation.md)__
-__Plugin repo link [here](./plugins.xml)__
+__Installation instructions [here](./plugin_installation.md)__  
+__QGIS-plugin-repo [link](./plugins.xml)__  
 
-![screenshot](screenshot.png)
+<img src="screenshot.png"  alt='cannot load image' height=400px >
 
 # Usage
 ## Graphical
 1. Open QGIS Processing Toolbox (the cog icon)
-2. Type or navigate to Fire2a > Raster Knapsack Optimization
-3. Select one or two layers, input the fraction ratio
+2. Type or navigate to: Fire2a > Raster Knapsack Optimization
+3. Select one or two layers, input the capacity ratio
 4. Click Run
 
-## Script in Qgis Console
+## Script in QGIS Console
 ```
 from qgis import processing
 result = processing.run(

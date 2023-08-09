@@ -17,7 +17,7 @@ Finally several solvers can be used (cbc, glpk, cplex_direct, ipopt, TODO gurobi
 __Installation instructions [here](./plugin_installation.md)__  
 __QGIS-plugin-repo [link](./plugins.xml)__  
 
-<img src="screenshot.png"  alt='cannot load image' height=400px >
+<img src="img/screenshot.png"  alt='cannot load image' height=400px >
 
 # Usage
 ## Graphical

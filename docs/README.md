@@ -4,7 +4,7 @@
                 
             by fire2a.com research centre
 
-                     version=0.0.1
+                     version=
 
 [This repo](https://github.com/fdobad/qgis-processingplugin-template) is a template for QGIS processing toolbox [plugins](https://plugins.qgis.org).
 
@@ -22,7 +22,9 @@ Finally several solvers can be used (cbc, glpk, cplex_direct, ipopt, TODO gurobi
 __Installation instructions [here](./plugin_installation.md)__  
 __QGIS-plugin-repo [link](./plugins.xml)__  
 
-<img src="img/screenshot.png"  alt='cannot load image' height=400px >
+| screenshot |
+| --- |
+|<img src="img/screenshot.png"  alt='cannot load image' height=400px >|
 
 # Usage
 ## Graphical

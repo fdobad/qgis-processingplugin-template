@@ -3,8 +3,8 @@ name: Deploy static content to Pages
 
 on:
   push:
-    tags:
-      - 'docs[0-9]+.[0-9]+.[0-9]+'
+    branches:
+      - docs
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -30,9 +30,9 @@ jobs:
 
       - name: version bump
         run: |
-           VERSION=${GITHUB_REF_NAME#docs}
-           echo "version is ${VERSION}"
-           sed -i -e "s/version=0.0.1/version=${VERSION}/" docs/README.md
+           GIT_TAG=${git describe --tags}
+           echo "version is ${GIT_TAG}"
+           sed -i -e "7s/version=/version=${GIT_TAG}/" ./docs/README.md
 
       - name: Setup Pages
         uses: actions/configure-pages@v3

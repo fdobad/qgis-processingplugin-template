@@ -1,5 +1,8 @@
 # Processing Plugin Template
 
+![release](https://github.com/fdobad/qgis-processingplugin-template/actions/workflows/main.yml/badge.svg)  
+![documentation](https://github.com/fdobad/qgis-processingplugin-template/actions/workflows/static.yml/badge.svg)  
+
 Calling order
 
     1.  __init__.py

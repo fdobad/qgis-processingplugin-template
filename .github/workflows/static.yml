@@ -30,7 +30,7 @@ jobs:
 
       - name: version bump
         run: |
-           GIT_TAG=${git describe --tags}
+           GIT_TAG=$(git describe --tags)
            echo "version is ${GIT_TAG}"
            sed -i -e "7s/version=/version=${GIT_TAG}/" ./docs/README.md
 

@@ -31,12 +31,14 @@ __copyright__ = "(C) 2023 by fdo"
 __version__ = "$Format:%H$"
 
 from time import sleep
+from os import sep
 
 from qgis.core import (QgsFeatureSink, QgsProcessing, QgsProcessingAlgorithm,
-                       QgsProcessingLayerPostProcessorInterface,
+                       QgsProcessingLayerPostProcessorInterface, QgsProject,
                        QgsProcessingParameterBoolean,
                        QgsProcessingParameterEnum,
                        QgsProcessingParameterFeatureSink,
+                       QgsProcessingParameterFileDestination,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFile,
                        QgsProcessingParameterNumber)
@@ -69,6 +71,7 @@ class ProcessingPluginClassAlgorithm(QgsProcessingAlgorithm):
     INPUT_integer = "INPUT_integer"
     INPUT_double = "INPUT_double"
     INPUT_enum = "INPUT_enum"
+    OUTPUT_csv = "OUTPUT_csv"
 
     def initAlgorithm(self, config):
         """
@@ -166,6 +169,18 @@ class ProcessingPluginClassAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterFeatureSink(self.OUTPUT, self.tr("Output layer"))
         )
 
+        # QgsProcessingParameterFileDestination(name: str, description: str = '', fileFilter: str = '', defaultValue: Any = None, optional: bool = False, createByDefault: bool = True)
+        defaultValue = QgsProject().instance().absolutePath()
+        defaultValue = defaultValue + sep + "statistics.csv" if defaultValue != "" else None
+        qparamfd = QgsProcessingParameterFileDestination(
+            name=self.OUTPUT_csv,
+            description=self.tr("CSV statistics file output (overwrites!)"),
+            fileFilter="CSV files (*.csv)",
+            defaultValue=defaultValue,
+        )
+        qparamfd.setMetadata({"widget_wrapper": {"dontconfirmoverwrite": True}})
+        self.addParameter(qparamfd)
+
     def processAlgorithm(self, parameters, context, feedback):
         """
         Here is where the processing itself takes place.
@@ -254,7 +269,12 @@ class ProcessingPluginClassAlgorithm(QgsProcessingAlgorithm):
         #    )
         # )
 
-        return {self.OUTPUT: dest_id}
+        output_file = self.parameterAsFileOutput(parameters, self.OUTPUT_csv, context)
+        feedback.pushCommandInfo(f"output_file: {output_file}, type: {type(output_file)}")
+        df = DataFrame(np.random.randint(0, 10, (4, 3)), columns=["a", "b", "c"])
+        df.to_csv(output_file, index=False)
+
+        return {self.OUTPUT: dest_id, self.OUTPUT_csv: output_file}
 
     def name(self):
         """

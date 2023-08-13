@@ -31,7 +31,16 @@ m.obj = pyo.Objective(expr=obj_expr, sense=pyo.maximize)
 
 m.capacity = pyo.Constraint(rule=lambda m: pyo.sum_product(m.X, m.We, index=m.N) <= m.Cap)
 
-opt = pyo.SolverFactory("cplex_direct")
+# NEOS
+import os
+# register @ https://neos-server.org
+os.environ['NEOS_EMAIL'] = ''
+opt = pyo.SolverFactory('cbc')
+with pyo.SolverManagerFactory('neos') as solver_manager:
+    results = solver_manager.solve(m, opt=opt)
+
+# CBC
+opt = pyo.SolverFactory("cbc", executable='C:/Users/FernandoBadilla/AppData/Roaming/QGIS/QGIS3/profiles/default/python/plugins/processingpluginmodule/cbc/bin/cbc.exe')
 results = opt.solve(m, tee=True, options_string="mipgap=0.01 timelimit=300")
 
 status = results.solver.status

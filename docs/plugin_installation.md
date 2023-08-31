@@ -66,7 +66,7 @@ TODO
 
     3.1 Open QGIS  
     3.2 Menu Bar: Plugins > Manage and Install Plugins... > Settings > Add... (button at the bottom right of Plugin Repositories section)  
-    3.2 "Repository details" dialog opens. Fill inputs:  
+    3.3 "Repository details" dialog opens. Fill inputs:  
         "Name": any, though "Fire2a" is suggested  
         "URL" input with "https://fdobad.github.io/qgis-processingplugin-template/plugins.xml"  
    Confirm (Ok button), repos will be reloaded and a success state should be seen from the fire2a repository

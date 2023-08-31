@@ -40,6 +40,10 @@ Calling order
     sed -i -e "s/version=0.0.1/version=${VERSION}/" metadata.txt
     git archive --format=zip --prefix=archived/ --add-file=metadata.txt --output archive.zip HEAD
 
+    # echo "GIT_TAG=`echo $(git describe --tags)`" >> $GITHUB_ENV
+    GIT_TAG=${git describe --tags}
+    sed -i -e "s/version=/version=${GIT_TAG}/" docs/README.md
+
 # Github Actions
 Action1: Documentation build and deploy based on [this](https://github.com/actions/starter-workflows/blob/main/pages/jekyll-gh-pages.yml)  
 
